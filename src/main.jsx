@@ -12,6 +12,7 @@ import {
   Trophy,
   ZoomIn,
 } from 'lucide-react';
+import { useMatches } from './hooks/useMatches';
 import './styles.css';
 
 // ─── Confederation colours ────────────────────────────────────────────────────
@@ -47,7 +48,7 @@ const hostCities = [
   { id: 'v-mty', city: 'Monterrey',             country: 'Mexico', lat:  25.67, lng: -100.31, stadium: 'Estadio BBVA',            capacity: 53464 },
 ];
 
-const teams = [
+const fallbackTeams = [
   // UEFA (16)
   { id: 'ger', name: 'Germany',     flag: '🇩🇪', lat:  52.52, lng:  13.41, conf: 'UEFA' },
   { id: 'fra', name: 'France',      flag: '🇫🇷', lat:  48.86, lng:   2.35, conf: 'UEFA' },
@@ -105,23 +106,20 @@ const teams = [
 ];
 
 // Mock match data — June 17 2026, group stage day 7
-const matches = [
-  { id: 'm01', teamA: 'bra', teamB: 'arg', venueId: 'v-nyc', group: 'A', status: 'live',     minute: 67, scoreA: 2, scoreB: 1, time: '15:00' },
-  { id: 'm02', teamA: 'ger', teamB: 'fra', venueId: 'v-dal', group: 'B', status: 'live',     minute: 23, scoreA: 0, scoreB: 0, time: '18:00' },
-  { id: 'm03', teamA: 'jpn', teamB: 'esp', venueId: 'v-la',  group: 'C', status: 'live',     minute: 82, scoreA: 1, scoreB: 2, time: '12:00' },
-  { id: 'm04', teamA: 'mex', teamB: 'ned', venueId: 'v-mxc', group: 'D', status: 'live',     minute: 45, scoreA: 1, scoreB: 1, time: '16:00' },
-  { id: 'm05', teamA: 'mar', teamB: 'eng', venueId: 'v-hou', group: 'E', status: 'upcoming', minute: null, scoreA: null, scoreB: null, time: '21:00' },
-  { id: 'm06', teamA: 'nga', teamB: 'col', venueId: 'v-sf',  group: 'F', status: 'upcoming', minute: null, scoreA: null, scoreB: null, time: '21:00' },
-  { id: 'm07', teamA: 'kor', teamB: 'por', venueId: 'v-van', group: 'G', status: 'finished', minute: 90, scoreA: 1, scoreB: 3, time: '09:00' },
-  { id: 'm08', teamA: 'usa', teamB: 'sen', venueId: 'v-atl', group: 'H', status: 'finished', minute: 90, scoreA: 3, scoreB: 2, time: '10:00' },
+const fallbackMatches = [
+  { id: 'm01', teamA: 'bra', teamB: 'arg', venueId: 'v-nyc', group: 'A', status: 'live',     minute: 67, scoreA: 2, scoreB: 1, kickoffUtc: '2026-06-17T19:00:00Z' },
+  { id: 'm02', teamA: 'ger', teamB: 'fra', venueId: 'v-dal', group: 'B', status: 'live',     minute: 23, scoreA: 0, scoreB: 0, kickoffUtc: '2026-06-17T22:00:00Z' },
+  { id: 'm03', teamA: 'jpn', teamB: 'esp', venueId: 'v-la',  group: 'C', status: 'live',     minute: 82, scoreA: 1, scoreB: 2, kickoffUtc: '2026-06-17T16:00:00Z' },
+  { id: 'm04', teamA: 'mex', teamB: 'ned', venueId: 'v-mxc', group: 'D', status: 'live',     minute: 45, scoreA: 1, scoreB: 1, kickoffUtc: '2026-06-17T20:00:00Z' },
+  { id: 'm05', teamA: 'mar', teamB: 'eng', venueId: 'v-hou', group: 'E', status: 'upcoming', minute: null, scoreA: null, scoreB: null, kickoffUtc: '2026-06-18T01:00:00Z' },
+  { id: 'm06', teamA: 'nga', teamB: 'col', venueId: 'v-sf',  group: 'F', status: 'upcoming', minute: null, scoreA: null, scoreB: null, kickoffUtc: '2026-06-18T01:00:00Z' },
+  { id: 'm07', teamA: 'kor', teamB: 'por', venueId: 'v-van', group: 'G', status: 'finished', minute: 90, scoreA: 1, scoreB: 3, kickoffUtc: '2026-06-17T13:00:00Z' },
+  { id: 'm08', teamA: 'usa', teamB: 'sen', venueId: 'v-atl', group: 'H', status: 'finished', minute: 90, scoreA: 3, scoreB: 2, kickoffUtc: '2026-06-17T14:00:00Z' },
 ];
 
 const confFilters = ['All', 'UEFA', 'CONMEBOL', 'CONCACAF', 'CAF', 'AFC', 'OFC'];
 
 // Lookup maps (module-level for stable reference)
-const teamMap  = Object.fromEntries(teams.map(t => [t.id, t]));
-const venueMap = Object.fromEntries(hostCities.map(c => [c.id, c]));
-
 // ─── Three.js helpers ────────────────────────────────────────────────────────
 
 function latLngToVector3(lat, lng, radius) {
@@ -181,12 +179,24 @@ function makeEarthTexture() {
   return new THREE.CanvasTexture(canvas);
 }
 
+function formatKickoff(value) {
+  if (!value) return 'TBD';
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function formatFreshness(value) {
+  if (!value) return 'embedded demo';
+  return `updated ${new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date(value))}`;
+}
+
 // ─── GlobeScene ──────────────────────────────────────────────────────────────
 //
 // Scene is created ONCE. All dynamic state (selection, filter) is read
 // from refs each animation frame — avoids full Three.js teardown on every click.
 
-function GlobeScene({ selectedMatchId, onSelectMatch, confFilter }) {
+function GlobeScene({ selectedMatchId, onSelectMatch, confFilter, teams, matches, hostCities }) {
   const mountRef       = useRef(null);
   const sceneRef       = useRef(null);
   const selectedRef    = useRef(selectedMatchId);
@@ -199,6 +209,8 @@ function GlobeScene({ selectedMatchId, onSelectMatch, confFilter }) {
 
   useEffect(() => {
     const mount = mountRef.current;
+    const teamMap = Object.fromEntries(teams.map(t => [t.id, t]));
+    const venueMap = Object.fromEntries(hostCities.map(c => [c.id, c]));
 
     // ── Renderer / Camera / Scene ──────────────────────────────────────────
     const scene = new THREE.Scene();
@@ -491,14 +503,14 @@ function GlobeScene({ selectedMatchId, onSelectMatch, confFilter }) {
       renderer.dispose();
       if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement);
     };
-  }, []); // scene created once; dynamic state flows through refs
+  }, [teams, matches, hostCities]);
 
   return <div className="globe-canvas" ref={mountRef} aria-label="FIFA World Cup 2026 match monitor" />;
 }
 
 // ─── MatchRow ─────────────────────────────────────────────────────────────────
 
-function MatchRow({ match, selected, onSelect }) {
+function MatchRow({ match, selected, onSelect, teamMap, venueMap }) {
   const tA = teamMap[match.teamA];
   const tB = teamMap[match.teamB];
   const city = venueMap[match.venueId];
@@ -513,7 +525,7 @@ function MatchRow({ match, selected, onSelect }) {
         <span className="match-score-inline">
           {match.status !== 'upcoming'
             ? `${match.scoreA} – ${match.scoreB}`
-            : match.time}
+            : formatKickoff(match.kickoffUtc)}
         </span>
         <span className="match-team-name right">{tB?.name} {tB?.flag}</span>
       </div>
@@ -531,18 +543,31 @@ function MatchRow({ match, selected, onSelect }) {
 // ─── App ──────────────────────────────────────────────────────────────────────
 
 function App() {
-  const [selectedMatchId, setSelectedMatchId] = useState(matches[0].id);
+  const { matches, teams, loading, error, lastUpdated, source } = useMatches({
+    fallbackMatches,
+    fallbackTeams,
+    hostCities,
+  });
+  const [selectedMatchId, setSelectedMatchId] = useState(fallbackMatches[0].id);
   const [confFilter,      setConfFilter]       = useState('All');
   const [query,           setQuery]            = useState('');
   const [autoTour,        setAutoTour]         = useState(true);
 
-  const selectedMatch = matches.find(m => m.id === selectedMatchId);
+  const teamMap = useMemo(() => Object.fromEntries(teams.map(t => [t.id, t])), [teams]);
+  const venueMap = useMemo(() => Object.fromEntries(hostCities.map(c => [c.id, c])), []);
+  const selectedMatch = matches.find(m => m.id === selectedMatchId) ?? matches[0];
   const tA    = selectedMatch ? teamMap[selectedMatch.teamA]  : null;
   const tB    = selectedMatch ? teamMap[selectedMatch.teamB]  : null;
   const venue = selectedMatch ? venueMap[selectedMatch.venueId] : null;
 
   const liveCount     = matches.filter(m => m.status === 'live').length;
   const upcomingCount = matches.filter(m => m.status === 'upcoming').length;
+
+  useEffect(() => {
+    if (matches.length && !matches.some(match => match.id === selectedMatchId)) {
+      setSelectedMatchId(matches[0].id);
+    }
+  }, [matches, selectedMatchId]);
 
   const visibleMatches = useMemo(() => {
     const q = query.toLowerCase();
@@ -637,7 +662,7 @@ function App() {
             <>
               <p className="list-label">⬤ LIVE</p>
               {liveMatches.map(m => (
-                <MatchRow key={m.id} match={m} selected={m.id === selectedMatchId} onSelect={setSelectedMatchId} />
+                <MatchRow key={m.id} match={m} selected={m.id === selectedMatchId} onSelect={setSelectedMatchId} teamMap={teamMap} venueMap={venueMap} />
               ))}
             </>
           )}
@@ -645,7 +670,7 @@ function App() {
             <>
               <p className="list-label">◷ UPCOMING</p>
               {upcomingMatches.map(m => (
-                <MatchRow key={m.id} match={m} selected={m.id === selectedMatchId} onSelect={setSelectedMatchId} />
+                <MatchRow key={m.id} match={m} selected={m.id === selectedMatchId} onSelect={setSelectedMatchId} teamMap={teamMap} venueMap={venueMap} />
               ))}
             </>
           )}
@@ -653,7 +678,7 @@ function App() {
             <>
               <p className="list-label">✓ FINISHED</p>
               {finishedMatches.map(m => (
-                <MatchRow key={m.id} match={m} selected={m.id === selectedMatchId} onSelect={setSelectedMatchId} />
+                <MatchRow key={m.id} match={m} selected={m.id === selectedMatchId} onSelect={setSelectedMatchId} teamMap={teamMap} venueMap={venueMap} />
               ))}
             </>
           )}
@@ -664,8 +689,8 @@ function App() {
       <section className="stage">
         <div className="top-bar">
           <div>
-            <p className="eyebrow">LIVE VISUALIZATION · JUN 17, 2026</p>
-            <h2>Group stage · Day 7</h2>
+            <p className="eyebrow">LIVE VISUALIZATION · {formatFreshness(lastUpdated)}</p>
+            <h2>World Cup 2026 · {source}</h2>
           </div>
           <div className="status-pill">
             <Globe2 size={17} />
@@ -677,7 +702,13 @@ function App() {
           selectedMatchId={selectedMatchId}
           onSelectMatch={setSelectedMatchId}
           confFilter={confFilter}
+          teams={teams}
+          matches={matches}
+          hostCities={hostCities}
         />
+
+        {loading && <div className="data-loading">Loading match feed...</div>}
+        {error && <div className="data-error" role="status">{error}</div>}
 
         {selectedMatch && tA && tB && venue && (
           <article className="detail-panel">
@@ -693,7 +724,7 @@ function App() {
                   : <span className="score-vs">vs</span>}
                 <span className={`status-badge status-${selectedMatch.status}`}>
                   {selectedMatch.status === 'live'     && `LIVE ${selectedMatch.minute}'`}
-                  {selectedMatch.status === 'upcoming' && selectedMatch.time}
+                  {selectedMatch.status === 'upcoming' && formatKickoff(selectedMatch.kickoffUtc)}
                   {selectedMatch.status === 'finished' && 'FT'}
                 </span>
               </div>
@@ -732,7 +763,7 @@ function App() {
             </div>
 
             <p className="source-note">
-              Demo dataset · Integrate football-data.org API for real-time scores
+              Source: {source} · {formatFreshness(lastUpdated)}
             </p>
           </article>
         )}

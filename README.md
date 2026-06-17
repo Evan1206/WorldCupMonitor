@@ -13,17 +13,29 @@ Interactive Three.js / WebGL 3D globe for monitoring FIFA World Cup 2026 matches
 - Match list grouped by status (live / upcoming / finished), click-to-select on the globe or in the list
 - Detail panel with scoreboard, venue, group, and confederation tags for the selected match
 
+## Live Data
+
+The frontend reads normalized World Cup 2026 data from the same-origin Vercel Functions at
+`/api/matches` and `/api/teams`. The functions proxy football-data.org without exposing the
+provider key and use Vercel edge caching to stay within the free API tier.
+
+Create `.env.local` (it is gitignored):
+
+```text
+FOOTBALL_DATA_API_KEY=your_football_data_org_key
+```
+
 ## Run Locally
 
 ```powershell
 npm.cmd install
-npm.cmd run dev -- --port 5173
+npx vercel dev
 ```
 
 Open:
 
 ```text
-http://127.0.0.1:5173
+http://localhost:3000
 ```
 
 ## Build
@@ -32,6 +44,13 @@ http://127.0.0.1:5173
 npm.cmd run build
 ```
 
-## Data
+## Deploy
 
-Match, team, and venue data currently live as mock/demo datasets directly in `src/main.jsx` (`teams`, `hostCities`, `matches`). See `SPEC.md` for the target architecture if extracting this into a real-time data layer (e.g. football-data.org API integration).
+1. Import `Evan1206/WorldCupMonitor` at Vercel and keep the detected Vite settings.
+2. Add `FOOTBALL_DATA_API_KEY` under Project Settings > Environment Variables for Production
+   and Preview.
+3. Push `main`. Vercel's Git integration deploys production automatically and creates preview
+   deployments for branches and pull requests. No GitHub Actions workflow is required.
+
+The frontend keeps its last successful response visible if the provider is temporarily
+unavailable. Venue metadata stays static; match and qualified-team data come from the API.
