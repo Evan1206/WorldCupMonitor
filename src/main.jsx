@@ -534,7 +534,7 @@ function MatchRow({ match, selected, onSelect, teamMap, venueMap }) {
         <span className={`match-dot match-dot--${match.status}`} />
         <span>
           {city?.city ?? match.venueId} · Grp {match.group}
-          {match.status === 'live' ? ` · ${match.minute}'` : ''}
+          {match.status === 'live' ? ` · ${match.minute == null ? 'LIVE' : `${match.minute}'`}` : ''}
         </span>
       </div>
     </button>
@@ -732,7 +732,7 @@ function App() {
                   ? <span className="score-digits">{selectedMatch.scoreA} – {selectedMatch.scoreB}</span>
                   : <span className="score-vs">vs</span>}
                 <span className={`status-badge status-${selectedMatch.status}`}>
-                  {selectedMatch.status === 'live'     && `LIVE ${selectedMatch.minute}'`}
+                  {selectedMatch.status === 'live'     && (selectedMatch.minute == null ? 'LIVE' : `LIVE ${selectedMatch.minute}'`)}
                   {selectedMatch.status === 'upcoming' && formatKickoff(selectedMatch.kickoffUtc)}
                   {selectedMatch.status === 'finished' && 'FT'}
                 </span>
