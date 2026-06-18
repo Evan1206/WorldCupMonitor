@@ -46,6 +46,7 @@ const hostCities = [
   { id: 'v-gdl', city: 'Guadalajara',           country: 'Mexico', lat:  20.69, lng: -103.37, stadium: 'Estadio Akron',           capacity: 49850 },
   { id: 'v-mxc', city: 'Mexico City',           country: 'Mexico', lat:  19.30, lng:  -99.15, stadium: 'Estadio Azteca',          capacity: 87523 },
   { id: 'v-mty', city: 'Monterrey',             country: 'Mexico', lat:  25.67, lng: -100.31, stadium: 'Estadio BBVA',            capacity: 53464 },
+  { id: 'v-tbd', city: 'Venue TBD',              country: 'TBD',    lat:   0.00, lng:    0.00, stadium: 'To be announced',         capacity: null, plottable: false },
 ];
 
 const fallbackTeams = [
@@ -282,7 +283,7 @@ function GlobeScene({ selectedMatchId, onSelectMatch, confFilter, teams, matches
     });
 
     // Host-city markers (gold, larger, with spike)
-    hostCities.forEach(city => {
+    hostCities.filter(city => city.plottable !== false).forEach(city => {
       const color = new THREE.Color(CITY_COLOR);
       const pt    = latLngToVector3(city.lat, city.lng, 2.55);
 
@@ -318,7 +319,7 @@ function GlobeScene({ selectedMatchId, onSelectMatch, confFilter, teams, matches
       const tA   = teamMap[match.teamA];
       const tB   = teamMap[match.teamB];
       const city = venueMap[match.venueId];
-      if (!tA || !tB || !city) return;
+      if (!tA || !tB || !city || city.plottable === false) return;
 
       const baseOp = match.status === 'live' ? 0.40 : match.status === 'upcoming' ? 0.15 : 0.07;
 
@@ -521,13 +522,13 @@ function MatchRow({ match, selected, onSelect, teamMap, venueMap }) {
       type="button"
     >
       <div className="match-teams">
-        <span className="match-team-name">{tA?.flag} {tA?.name}</span>
+        <span className="match-team-name"><TeamFlag team={tA} /> {tA?.name}</span>
         <span className="match-score-inline">
           {match.status !== 'upcoming'
             ? `${match.scoreA} – ${match.scoreB}`
             : formatKickoff(match.kickoffUtc)}
         </span>
-        <span className="match-team-name right">{tB?.name} {tB?.flag}</span>
+        <span className="match-team-name right">{tB?.name} <TeamFlag team={tB} /></span>
       </div>
       <div className="match-meta">
         <span className={`match-dot match-dot--${match.status}`} />
@@ -538,6 +539,14 @@ function MatchRow({ match, selected, onSelect, teamMap, venueMap }) {
       </div>
     </button>
   );
+}
+
+function TeamFlag({ team, className = '' }) {
+  if (!team?.flag) return null;
+  if (/^https?:\/\//.test(team.flag)) {
+    return <img className={`team-crest ${className}`} src={team.flag} alt="" />;
+  }
+  return <span className={className}>{team.flag}</span>;
 }
 
 // ─── App ──────────────────────────────────────────────────────────────────────
@@ -577,7 +586,7 @@ function App() {
       const queryOk = !q || `${a?.name} ${b?.name} ${v?.city}`.toLowerCase().includes(q);
       return confOk && queryOk;
     });
-  }, [confFilter, query]);
+  }, [confFilter, matches, query, teamMap, venueMap]);
 
   // Auto-tour: live → upcoming → finished
   useEffect(() => {
@@ -595,7 +604,7 @@ function App() {
       });
     }, 5000);
     return () => clearInterval(timer);
-  }, [autoTour, query]);
+  }, [autoTour, matches, query]);
 
   const liveMatches     = visibleMatches.filter(m => m.status === 'live');
   const upcomingMatches = visibleMatches.filter(m => m.status === 'upcoming');
@@ -620,7 +629,7 @@ function App() {
           </div>
           <div>
             <strong>{upcomingCount}</strong>
-            <span>upcoming today</span>
+            <span>upcoming</span>
           </div>
         </div>
 
@@ -715,7 +724,7 @@ function App() {
             {/* Score board */}
             <div className="score-board">
               <div className="score-team">
-                <span className="flag-lg">{tA.flag}</span>
+                <TeamFlag team={tA} className="flag-lg" />
                 <span className="team-nm">{tA.name}</span>
               </div>
               <div className="score-center">
@@ -729,7 +738,7 @@ function App() {
                 </span>
               </div>
               <div className="score-team score-team--r">
-                <span className="flag-lg">{tB.flag}</span>
+                <TeamFlag team={tB} className="flag-lg" />
                 <span className="team-nm">{tB.name}</span>
               </div>
             </div>

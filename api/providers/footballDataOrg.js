@@ -17,7 +17,7 @@ export function resolveTeam(team = {}) {
 
 export function resolveVenue(match = {}) {
   const haystack = `${match.venue ?? ''} ${match.area?.name ?? ''}`.toLowerCase();
-  return venueMetadata.find((venue) => venue.aliases.some((alias) => haystack.includes(alias)))?.id ?? 'v-nyc';
+  return venueMetadata.find((venue) => venue.aliases.some((alias) => haystack.includes(alias)))?.id ?? 'v-tbd';
 }
 
 export function normalizeStatus(status) {

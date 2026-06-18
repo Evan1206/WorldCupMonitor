@@ -454,3 +454,16 @@ h3 {
   border-color: rgba(255, 180, 50, 0.45);
   color: #ffd58a;
 }
+
+.team-crest {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+.team-crest.flag-lg {
+  width: 42px;
+  height: 42px;
+}

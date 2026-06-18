@@ -29,6 +29,7 @@ test('normalizes provider match data into the frontend schema', async () => {
 test('maps statuses, venues, and cache windows', () => {
   assert.equal(normalizeStatus('FINISHED'), 'finished');
   assert.equal(resolveVenue({ venue: 'BC Place' }), 'v-van');
+  assert.equal(resolveVenue({}), 'v-tbd');
   assert.equal(cacheControl([{ status: 'live' }]), 's-maxage=60, stale-while-revalidate=300');
   assert.equal(cacheControl([{ status: 'upcoming' }]), 's-maxage=900, stale-while-revalidate=1800');
 });
