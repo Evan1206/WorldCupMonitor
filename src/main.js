@@ -248,10 +248,16 @@ function positionDetails() {
   const sites = globeSites(visibleMatches().length ? visibleMatches() : state.matches);
   const anchor = anchorFor(selected, sites);
   const projected = globe.projectSite(anchor);
-  if (!projected?.visible) { detailsEl.classList.remove('visible'); return; }
   const stage = document.querySelector('.stage');
   const stageRect = stage.getBoundingClientRect();
   const cardRect = detailsEl.getBoundingClientRect();
+  if (!projected?.visible) {
+    detailsEl.style.left = `${Math.max(18, stageRect.width - cardRect.width - 18)}px`;
+    detailsEl.style.top = '96px';
+    detailsEl.dataset.anchor = 'right';
+    detailsEl.classList.add('visible');
+    return;
+  }
   const right = projected.x < stageRect.width * 0.58;
   detailsEl.style.left = `${Math.min(Math.max(projected.x + (right ? 22 : -(cardRect.width + 22)), 18), stageRect.width - cardRect.width - 18)}px`;
   detailsEl.style.top = `${Math.min(Math.max(projected.y - Math.min(cardRect.height * 0.38, 112), 96), stageRect.height - cardRect.height - 18)}px`;
