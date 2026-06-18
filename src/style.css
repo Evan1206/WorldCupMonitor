@@ -646,6 +646,27 @@ h2 {
   white-space: nowrap;
 }
 
+.odds-mini {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 5px;
+  color: #d9e2ef;
+  font-size: 10px;
+}
+
+.odds-mini i {
+  display: grid;
+  width: 17px;
+  height: 17px;
+  place-items: center;
+  border-radius: 4px;
+  color: #ffffff;
+  background: rgba(240, 68, 56, 0.72);
+  font-style: normal;
+  font-weight: 800;
+}
+
 .team-crest {
   width: 18px;
   height: 18px;
@@ -691,6 +712,52 @@ h2 {
   white-space: nowrap;
 }
 
+.odds-card {
+  display: grid;
+  gap: 7px;
+  margin: 9px 0;
+  padding: 9px;
+  border: 1px solid rgba(246, 200, 95, 0.24);
+  border-radius: 8px;
+  background: rgba(246, 200, 95, 0.06);
+}
+
+.odds-heading,
+.odds-coverage {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.odds-heading strong { font-size: 11px; }
+.odds-heading span { color: #9ca8b8; font-size: 9px; }
+
+.odds-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.odds-grid div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.odds-grid span {
+  overflow: hidden;
+  color: #aeb8c6;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.odds-grid strong { color: #f6c85f; font-size: 14px; }
+
 .pulse-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -708,6 +775,16 @@ h2 {
 .pulse-grid strong { font-size: 18px; }
 .pulse-grid span { color: #9ca8b8; font-size: 10px; text-transform: uppercase; }
 .insight-header small { color: #9ca8b8; font-weight: 600; }
+
+.odds-coverage {
+  padding: 7px 9px;
+  border-radius: 7px;
+  color: #b8c4d4;
+  background: rgba(246, 200, 95, 0.07);
+  font-size: 10px;
+}
+
+.odds-coverage strong { color: #f6c85f; }
 
 .details:not(.visible) {
   visibility: hidden;

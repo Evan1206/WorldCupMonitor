@@ -10,8 +10,9 @@ const FILTERS = ['All', ...Object.keys(CONF_COLORS)];
 const app = document.querySelector('#app');
 
 const state = {
-  matches: [], teams: [], selectedId: null, conf: 'All', query: '',
+  matches: [], teams: [], odds: [], selectedId: null, conf: 'All', query: '',
   lastUpdated: null, source: 'connecting', loading: true, error: null,
+  oddsSource: null, oddsUnavailable: false,
 };
 
 app.innerHTML = `
@@ -91,6 +92,28 @@ function statusText(match) {
   return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(match.kickoffUtc));
 }
 
+function oddsForMatch(match) {
+  if (!match) return null;
+  const event = state.odds.find((item) => {
+    const sameOrder = item.teamA === match.teamA && item.teamB === match.teamB;
+    const reverseOrder = item.teamA === match.teamB && item.teamB === match.teamA;
+    const kickoffGap = Math.abs(new Date(item.kickoffUtc).getTime() - new Date(match.kickoffUtc).getTime());
+    return (sameOrder || reverseOrder) && kickoffGap < 24 * 60 * 60 * 1000;
+  });
+  if (!event) return null;
+  const reversed = event.teamA === match.teamB;
+  return {
+    home: reversed ? event.odds.away : event.odds.home,
+    draw: event.odds.draw,
+    away: reversed ? event.odds.home : event.odds.away,
+    bookmakerCount: event.bookmakerCount,
+  };
+}
+
+function oddsNumber(value) {
+  return typeof value === 'number' ? value.toFixed(2) : '-';
+}
+
 function flagMarkup(team) {
   if (!team?.flag) return '';
   if (/^https?:\/\//.test(team.flag)) return `<img class="team-crest" src="${escapeHtml(team.flag)}" alt="" />`;
@@ -151,10 +174,12 @@ function renderList(matches) {
       const a = teams[match.teamA];
       const b = teams[match.teamB];
       const venue = venues[match.venueId];
+      const market = oddsForMatch(match);
       return `<button class="site-row match-row ${match.id === state.selectedId ? 'selected' : ''}" data-match-id="${escapeHtml(match.id)}" type="button">
         <span class="dot status-${match.status}"></span>
         <span><strong>${flagMarkup(a)}${escapeHtml(a?.name ?? 'TBD')} <b>${escapeHtml(scoreText(match))}</b> ${escapeHtml(b?.name ?? 'TBD')}${flagMarkup(b)}</strong>
         <small>${escapeHtml(venue?.city ?? 'Venue TBD')} &middot; Group ${escapeHtml(match.group || '-')}</small>
+        ${market ? `<span class="odds-mini"><i>1</i> ${oddsNumber(market.home)} <i>X</i> ${oddsNumber(market.draw)} <i>2</i> ${oddsNumber(market.away)}</span>` : ''}
         <em>${escapeHtml(statusText(match))}</em></span>
       </button>`;
     }).join('')}</div>`;
@@ -169,10 +194,12 @@ function renderDetails(match) {
   const a = teams[match.teamA];
   const b = teams[match.teamB];
   const venue = venues[match.venueId];
+  const market = oddsForMatch(match);
   detailsEl.innerHTML = `
     <div class="detail-heading"><span style="background:${match.status === 'live' ? '#f04438' : '#f6c85f'}"></span><div><p class="eyebrow">Group ${escapeHtml(match.group || '-')} &middot; ${escapeHtml(statusText(match))}</p><h2>${escapeHtml(a?.name ?? 'TBD')} vs ${escapeHtml(b?.name ?? 'TBD')}</h2></div></div>
     <div class="match-score-card"><span>${flagMarkup(a)}${escapeHtml(a?.name ?? 'TBD')}</span><strong>${escapeHtml(scoreText(match))}</strong><span>${escapeHtml(b?.name ?? 'TBD')}${flagMarkup(b)}</span></div>
     <p>${escapeHtml(venue?.city ?? 'Venue TBD')} &middot; ${escapeHtml(venue?.stadium ?? 'To be announced')}</p>
+    ${market ? `<div class="odds-card"><div class="odds-heading"><strong>Sportsbook odds</strong><span>${market.bookmakerCount} books average</span></div><div class="odds-grid"><div><span>1 &middot; ${escapeHtml(a?.name ?? 'Home')}</span><strong>${oddsNumber(market.home)}</strong></div><div><span>X &middot; Draw</span><strong>${oddsNumber(market.draw)}</strong></div><div><span>2 &middot; ${escapeHtml(b?.name ?? 'Away')}</span><strong>${oddsNumber(market.away)}</strong></div></div></div>` : ''}
     <div class="tag-list"><span>${escapeHtml(a?.conf ?? '-')}</span><span>${escapeHtml(b?.conf ?? '-')}</span><span>${escapeHtml(state.source)}</span></div>
     <p class="source-note">Updated ${state.lastUpdated ? new Date(state.lastUpdated).toLocaleTimeString() : 'pending'}</p>`;
   detailsEl.classList.add('visible');
@@ -180,8 +207,10 @@ function renderDetails(match) {
 
 function renderPulse() {
   const counts = Object.fromEntries(['live', 'upcoming', 'finished'].map((status) => [status, state.matches.filter((match) => match.status === status).length]));
+  const oddsCovered = state.matches.filter((match) => oddsForMatch(match)).length;
   pulseEl.innerHTML = `<div class="insight-header"><span>Match pulse</span><small>${escapeHtml(state.source)}</small></div>
     <div class="pulse-grid"><div><strong>${counts.live}</strong><span>live</span></div><div><strong>${counts.upcoming}</strong><span>upcoming</span></div><div><strong>${counts.finished}</strong><span>finished</span></div></div>`;
+  if (state.oddsSource) pulseEl.insertAdjacentHTML('beforeend', `<div class="odds-coverage"><span>Sportsbook odds</span><strong>${oddsCovered} matches</strong></div>`);
 }
 
 function render() {
@@ -241,6 +270,17 @@ async function refresh() {
     state.lastUpdated = matchPayload.lastUpdated ?? teamPayload.lastUpdated;
     state.source = matchPayload.source ?? teamPayload.source ?? state.source;
     state.error = null;
+    if (!state.oddsUnavailable) {
+      try {
+        const oddsResponse = await fetch('/api/odds');
+        if (!oddsResponse.ok) throw new Error(`Odds API ${oddsResponse.status}`);
+        const oddsPayload = await oddsResponse.json();
+        state.odds = oddsPayload.odds ?? [];
+        state.oddsSource = oddsPayload.source ?? 'sportsbook';
+      } catch {
+        state.oddsUnavailable = true;
+      }
+    }
   } catch (error) {
     state.error = state.matches.length ? `${error.message} · showing last known data` : error.message;
   } finally {

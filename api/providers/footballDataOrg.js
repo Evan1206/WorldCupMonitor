@@ -3,6 +3,14 @@ import { teamMetadata, venueMetadata } from '../data/metadata.js';
 const API_BASE = 'https://api.football-data.org/v4';
 const teamsByTla = new Map(teamMetadata.map((team) => [team.tla, team]));
 const teamsByName = new Map(teamMetadata.map((team) => [team.name.toLowerCase(), team]));
+const teamAliases = new Map([
+  ['bosnia-herzegovina', 'bih'], ['bosnia and herzegovina', 'bih'], ['bosnia & herzegovina', 'bih'],
+  ['cape verde', 'cpv'], ['curacao', 'cuw'], ['curaçao', 'cuw'],
+  ['czech republic', 'cze'], ['czechia', 'cze'], ['haiti', 'hai'],
+  ['ivory coast', 'civ'], ['norway', 'nor'], ['paraguay', 'par'],
+  ['qatar', 'qat'], ['south africa', 'rsa'], ['sweden', 'swe'],
+  ['uzbekistan', 'uzb'],
+]);
 
 function slugify(value) {
   return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -10,8 +18,11 @@ function slugify(value) {
 }
 
 export function resolveTeam(team = {}) {
+  const normalizedName = (team.name ?? '').toLowerCase();
+  const aliasId = teamAliases.get(normalizedName);
   return teamsByTla.get(team.tla)
-    ?? teamsByName.get((team.name ?? '').toLowerCase())
+    ?? teamsByName.get(normalizedName)
+    ?? (aliasId ? { id: aliasId, name: team.name, lat: 0, lng: 0, conf: 'OFC' } : null)
     ?? { id: team.tla?.toLowerCase() || slugify(team.name ?? 'tbd'), name: team.name ?? 'TBD', lat: 0, lng: 0, conf: 'OFC' };
 }
 

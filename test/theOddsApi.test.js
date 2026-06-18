@@ -35,3 +35,12 @@ test('handles events with no bookmakers', () => {
   });
   assert.deepEqual(event.odds, { home: null, draw: null, away: null });
 });
+
+test('normalizes provider naming aliases to football-data team ids', () => {
+  const event = normalizeOddsEvent({
+    id: 'evt-3', commence_time: '2026-06-18T16:00:00Z',
+    home_team: 'Czech Republic', away_team: 'Bosnia & Herzegovina', bookmakers: [],
+  });
+  assert.equal(event.teamA, 'cze');
+  assert.equal(event.teamB, 'bih');
+});
