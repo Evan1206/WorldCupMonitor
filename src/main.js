@@ -154,8 +154,8 @@ function renderList(matches) {
       return `<button class="site-row match-row ${match.id === state.selectedId ? 'selected' : ''}" data-match-id="${escapeHtml(match.id)}" type="button">
         <span class="dot status-${match.status}"></span>
         <span><strong>${flagMarkup(a)}${escapeHtml(a?.name ?? 'TBD')} <b>${escapeHtml(scoreText(match))}</b> ${escapeHtml(b?.name ?? 'TBD')}${flagMarkup(b)}</strong>
-        <small>${escapeHtml(venue?.city ?? 'Venue TBD')} &middot; Group ${escapeHtml(match.group || '-')}</small></span>
-        <em>${escapeHtml(statusText(match))}</em>
+        <small>${escapeHtml(venue?.city ?? 'Venue TBD')} &middot; Group ${escapeHtml(match.group || '-')}</small>
+        <em>${escapeHtml(statusText(match))}</em></span>
       </button>`;
     }).join('')}</div>`;
   }).join('');
