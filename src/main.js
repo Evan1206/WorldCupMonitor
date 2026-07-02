@@ -10,7 +10,7 @@ const FILTERS = ['All', ...Object.keys(CONF_COLORS)];
 const app = document.querySelector('#app');
 
 const state = {
-  matches: [], teams: [], odds: [], selectedId: null, conf: 'All', query: '',
+  matches: [], teams: [], odds: [], selectedId: null, selectedVenueId: null, conf: 'All', query: '',
   lastUpdated: null, source: 'connecting', loading: true, error: null,
   oddsSource: null, oddsUnavailable: false,
 };
@@ -140,7 +140,7 @@ function globeSites(matches) {
   const selected = state.matches.find((match) => match.id === state.selectedId);
   const venueSites = hostCities.filter((venue) => venue.plottable !== false).map((venue) => ({
     ...venue, region: venue.country, type: 'Host venue', signal: Math.round((venue.capacity / 87523) * 100),
-    color: '#f6c85f', kind: 'venue', highGrowth: selected?.venueId === venue.id, models: [], note: '',
+    color: '#f6c85f', kind: 'venue', highGrowth: (state.selectedVenueId ?? selected?.venueId) === venue.id, models: [], note: '',
   }));
   if (!oddsUsesLocalMarkets()) return venueSites;
 
@@ -176,7 +176,8 @@ function matchArcs(matches) {
   });
 }
 
-function anchorFor(match, sites) {
+function anchorFor(match, sites, venue) {
+  if (venue) return sites.find((site) => site.id === venue.id) ?? sites[0];
   if (!match) return sites[0];
   return sites.find((site) => site.id === match.venueId)
     ?? sites[0];
@@ -206,7 +207,33 @@ function renderList(matches) {
   listEl.querySelectorAll('[data-match-id]').forEach((button) => button.addEventListener('click', () => selectMatch(button.dataset.matchId)));
 }
 
-function renderDetails(match) {
+function venueMatches(venueId) {
+  return state.matches.filter((match) => match.venueId === venueId);
+}
+
+function renderVenueDetails(venue) {
+  const teams = teamMap();
+  const matches = venueMatches(venue.id);
+  const nextMatches = matches.slice(0, 3);
+  detailsEl.innerHTML = `
+    <div class="detail-heading"><span style="background:#f6c85f"></span><div><p class="eyebrow">Host venue</p><h2>${escapeHtml(venue.city)}</h2></div></div>
+    <p>${escapeHtml(venue.stadium)} &middot; ${escapeHtml(venue.country)}</p>
+    <div class="venue-stat-grid">
+      <div><span>Capacity</span><strong>${venue.capacity ? venue.capacity.toLocaleString() : 'TBD'}</strong></div>
+      <div><span>Matches assigned</span><strong>${matches.length}</strong></div>
+    </div>
+    ${nextMatches.length ? `<div class="venue-match-list">${nextMatches.map((match) => {
+      const a = teams[match.teamA];
+      const b = teams[match.teamB];
+      return `<button type="button" data-venue-match-id="${escapeHtml(match.id)}"><strong>${flagMarkup(a)}${escapeHtml(a?.name ?? 'TBD')} vs ${escapeHtml(b?.name ?? 'TBD')}${flagMarkup(b)}</strong><small>${escapeHtml(statusText(match))} &middot; Group ${escapeHtml(match.group || '-')}</small></button>`;
+    }).join('')}</div>` : '<p class="source-note">Match schedule has not assigned this venue yet. The pin still marks a confirmed 2026 host stadium.</p>'}
+    <div class="tag-list"><span>${escapeHtml(venue.country)}</span><span>venue pin</span><span>${escapeHtml(state.source)}</span></div>`;
+  detailsEl.querySelectorAll('[data-venue-match-id]').forEach((button) => button.addEventListener('click', () => selectMatch(button.dataset.venueMatchId)));
+  detailsEl.classList.add('visible');
+}
+
+function renderDetails(match, selectedVenue) {
+  if (selectedVenue) { renderVenueDetails(selectedVenue); return; }
   if (!match) { detailsEl.classList.remove('visible'); return; }
   const teams = teamMap();
   const venues = venueMap();
@@ -236,10 +263,12 @@ function render() {
   const matches = visibleMatches();
   if (!state.selectedId || !state.matches.some((match) => match.id === state.selectedId)) state.selectedId = state.matches[0]?.id ?? null;
   if (matches.length && !matches.some((match) => match.id === state.selectedId)) state.selectedId = matches[0].id;
+  if (state.selectedVenueId && !hostCities.some((venue) => venue.id === state.selectedVenueId && venue.plottable !== false)) state.selectedVenueId = null;
   const selected = state.matches.find((match) => match.id === state.selectedId);
+  const selectedVenue = hostCities.find((venue) => venue.id === state.selectedVenueId);
   const sites = globeSites(matches.length ? matches : state.matches);
   const activeArcs = state.matches.filter((match) => match.status === 'live' || match.id === state.selectedId);
-  const anchor = anchorFor(selected, sites);
+  const anchor = anchorFor(selected, sites, selectedVenue);
 
   document.querySelector('#live-count').textContent = state.matches.filter((match) => match.status === 'live').length;
   document.querySelector('#upcoming-count').textContent = state.matches.filter((match) => match.status === 'upcoming').length;
@@ -248,14 +277,24 @@ function render() {
   statusEl.textContent = state.error ?? (state.loading ? 'Connecting to football-data.org...' : `Live data · ${state.source}`);
   statusEl.classList.toggle('error', Boolean(state.error));
   renderList(matches);
-  renderDetails(selected);
+  renderDetails(selected, selectedVenue);
   renderPulse();
   if (sites.length) updateGlobeData(globe, sites, matchArcs(activeArcs), anchor?.id);
 }
 
-function selectMatch(id) { state.selectedId = id; render(); }
+function selectMatch(id) {
+  state.selectedId = id;
+  state.selectedVenueId = null;
+  render();
+}
+
+function selectVenue(id) {
+  state.selectedVenueId = id;
+  render();
+}
 
 function selectMarker(id) {
+  if (id.startsWith('v-')) { selectVenue(id); return; }
   if (!oddsUsesLocalMarkets() && id.startsWith('team-')) return;
   const teamId = id.startsWith('team-') ? id.slice(5) : null;
   const match = state.matches.find((item) => teamId ? item.teamA === teamId || item.teamB === teamId : item.venueId === id);
@@ -264,9 +303,10 @@ function selectMarker(id) {
 
 function positionDetails() {
   const selected = state.matches.find((match) => match.id === state.selectedId);
-  if (!selected || !detailsEl.classList.contains('visible')) return;
+  const selectedVenue = hostCities.find((venue) => venue.id === state.selectedVenueId);
+  if ((!selected && !selectedVenue) || !detailsEl.classList.contains('visible')) return;
   const sites = globeSites(visibleMatches().length ? visibleMatches() : state.matches);
-  const anchor = anchorFor(selected, sites);
+  const anchor = anchorFor(selected, sites, selectedVenue);
   const projected = globe.projectSite(anchor);
   const stage = document.querySelector('.stage');
   const stageRect = stage.getBoundingClientRect();
