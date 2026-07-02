@@ -30,7 +30,12 @@ app.innerHTML = `
       <div class="control-content">
         <label class="search"><span>Search</span><input id="search" placeholder="team, city, stadium" /></label>
         <div class="filters">${FILTERS.map((filter) => `<button type="button" data-conf="${filter}" class="${filter === 'All' ? 'active' : ''}">${filter}</button>`).join('')}</div>
-        <div class="guide"><span>Drag to rotate</span><span>Wheel or pinch to zoom</span><span>Click a team, venue, or match row</span></div>
+        <div class="guide"><span>Drag to rotate</span><span>Wheel or pinch to zoom</span><span>Click a venue or match row</span></div>
+        <div class="map-legend">
+          <span><i class="legend-pin"></i> Host venue</span>
+          <span><i class="legend-odds">1X2</i> Sportsbook odds</span>
+          <small>Team country markers appear only when odds include a local market.</small>
+        </div>
       </div>
     </details>
     <div id="feed-status" class="feed-status">Connecting to football-data.org...</div>
@@ -110,6 +115,17 @@ function oddsForMatch(match) {
   };
 }
 
+function oddsUsesLocalMarkets() {
+  return state.odds.some((event) => (
+    event.localMarket
+    || event.marketCountry
+    || event.marketRegion
+    || event.region
+    || event.country
+    || (Array.isArray(event.regions) && event.regions.length > 0)
+  ));
+}
+
 function oddsNumber(value) {
   return typeof value === 'number' ? value.toFixed(2) : '-';
 }
@@ -121,24 +137,28 @@ function flagMarkup(team) {
 }
 
 function globeSites(matches) {
-  const teams = teamMap();
   const selected = state.matches.find((match) => match.id === state.selectedId);
+  const venueSites = hostCities.filter((venue) => venue.plottable !== false).map((venue) => ({
+    ...venue, region: venue.country, type: 'Host venue', signal: Math.round((venue.capacity / 87523) * 100),
+    color: '#f6c85f', kind: 'venue', highGrowth: selected?.venueId === venue.id, models: [], note: '',
+  }));
+  if (!oddsUsesLocalMarkets()) return venueSites;
+
+  const teams = teamMap();
   const liveTeamIds = new Set(state.matches.filter((match) => match.status === 'live').flatMap((match) => [match.teamA, match.teamB]));
   const involvedIds = new Set(matches.flatMap((match) => [match.teamA, match.teamB]));
   const teamSites = [...involvedIds].map((id) => teams[id]).filter((team) => team && (team.lat || team.lng)).map((team) => ({
     id: `team-${team.id}`, teamId: team.id, code: team.id, city: team.name, country: team.name,
-    region: team.conf, lat: team.lat, lng: team.lng, type: 'Qualified team', signal: 72,
+    region: team.conf, lat: team.lat, lng: team.lng, type: 'Local odds market', signal: 72,
     color: CONF_COLORS[team.conf] ?? '#adb5bd', kind: 'market', growth: null, share: 34,
     highGrowth: liveTeamIds.has(team.id), models: [], note: '',
-  }));
-  const venueSites = hostCities.filter((venue) => venue.plottable !== false).map((venue) => ({
-    ...venue, region: venue.country, type: 'Host venue', signal: Math.round((venue.capacity / 87523) * 100),
-    color: '#f6c85f', kind: 'venue', highGrowth: selected?.venueId === venue.id, models: [], note: '',
   }));
   return [...venueSites, ...teamSites];
 }
 
 function matchArcs(matches) {
+  if (!oddsUsesLocalMarkets()) return [];
+
   const teams = teamMap();
   const venues = venueMap();
   return matches.flatMap((match) => {
@@ -159,7 +179,6 @@ function matchArcs(matches) {
 function anchorFor(match, sites) {
   if (!match) return sites[0];
   return sites.find((site) => site.id === match.venueId)
-    ?? sites.find((site) => site.id === `team-${match.teamA}`)
     ?? sites[0];
 }
 
@@ -237,6 +256,7 @@ function render() {
 function selectMatch(id) { state.selectedId = id; render(); }
 
 function selectMarker(id) {
+  if (!oddsUsesLocalMarkets() && id.startsWith('team-')) return;
   const teamId = id.startsWith('team-') ? id.slice(5) : null;
   const match = state.matches.find((item) => teamId ? item.teamA === teamId || item.teamB === teamId : item.venueId === id);
   if (match) selectMatch(match.id);

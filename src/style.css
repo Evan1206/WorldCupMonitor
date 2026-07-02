@@ -242,6 +242,60 @@ h2 {
   font-size: 13px;
 }
 
+.map-legend {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #d9e2ef;
+  font-size: 12px;
+}
+
+.map-legend span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.map-legend small {
+  color: #8f9aaa;
+  line-height: 1.35;
+}
+
+.legend-pin {
+  position: relative;
+  width: 14px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.72);
+  border-radius: 50% 50% 55% 55%;
+  background: linear-gradient(180deg, #ffe08a, #d9851e);
+  transform: rotate(45deg);
+}
+
+.legend-pin::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: #111827;
+}
+
+.legend-odds {
+  display: inline-grid;
+  min-width: 30px;
+  min-height: 20px;
+  place-items: center;
+  border-radius: 6px;
+  color: #111827;
+  background: #f6c85f;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
 .site-list {
   display: grid;
   gap: 8px;
