@@ -47,7 +47,7 @@ function markerFacingCamera(object, camera) {
   return normal.dot(cameraDirection);
 }
 
-function makeFactoryPinTexture() {
+function makeVenuePinTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = 128;
   canvas.height = 168;
@@ -58,8 +58,9 @@ function makeFactoryPinTexture() {
   ctx.shadowOffsetY = 7;
 
   const gradient = ctx.createLinearGradient(0, 8, 0, 128);
-  gradient.addColorStop(0, '#ff5858');
-  gradient.addColorStop(1, '#c1121f');
+  gradient.addColorStop(0, '#ffe08a');
+  gradient.addColorStop(0.58, '#f6b94d');
+  gradient.addColorStop(1, '#d9851e');
   ctx.fillStyle = gradient;
   ctx.beginPath();
   ctx.moveTo(64, 158);
@@ -71,26 +72,53 @@ function makeFactoryPinTexture() {
   ctx.fill();
 
   ctx.shadowColor = 'transparent';
-  ctx.fillStyle = '#ffffff';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.72)';
+  ctx.lineWidth = 5;
+  ctx.stroke();
+
+  ctx.fillStyle = '#111827';
   ctx.beginPath();
-  ctx.arc(64, 60, 31, 0, Math.PI * 2);
+  ctx.arc(64, 60, 34, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = '#c1121f';
-  ctx.fillRect(43, 62, 42, 19);
-  ctx.fillRect(48, 51, 7, 12);
-  ctx.fillRect(61, 45, 7, 18);
-  ctx.fillRect(73, 55, 7, 8);
+  ctx.strokeStyle = 'rgba(255, 224, 138, 0.72)';
+  ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.moveTo(43, 62);
-  ctx.lineTo(55, 52);
-  ctx.lineTo(65, 62);
-  ctx.lineTo(76, 53);
-  ctx.lineTo(85, 62);
+  ctx.arc(64, 60, 25, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 4;
+
+  ctx.beginPath();
+  ctx.ellipse(64, 68, 26, 10, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(41, 66);
+  ctx.quadraticCurveTo(64, 49, 87, 66);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(48, 60);
+  ctx.lineTo(48, 45);
+  ctx.moveTo(80, 60);
+  ctx.lineTo(80, 45);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(54, 72);
+  ctx.lineTo(74, 72);
+  ctx.lineTo(80, 82);
+  ctx.lineTo(48, 82);
   ctx.closePath();
   ctx.fill();
-  ctx.fillStyle = '#ffffff';
-  [48, 60, 72].forEach((x) => ctx.fillRect(x, 68, 7, 8));
+
+  ctx.fillStyle = '#111827';
+  ctx.fillRect(57, 74, 14, 5);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -238,7 +266,7 @@ export function createToyotaGlobe(container, { onSelect }) {
   );
   scene.add(stars);
 
-  const factoryPinTexture = makeFactoryPinTexture();
+  const venuePinTexture = makeVenuePinTexture();
   const badgeTextureCache = new Map();
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
@@ -284,8 +312,8 @@ export function createToyotaGlobe(container, { onSelect }) {
     sites.forEach((site, index) => {
       const point = latLngToVector3(site.lat, site.lng, MARKER_RADIUS);
       const color = new THREE.Color(site.color);
-      const isFactory = site.kind === 'factory';
-      const texture = isFactory ? factoryPinTexture : badgeTextureFor(site);
+      const isVenue = site.kind === 'venue';
+      const texture = isVenue ? venuePinTexture : badgeTextureFor(site);
       const material = new THREE.SpriteMaterial({
         map: texture,
         transparent: true,
@@ -295,8 +323,8 @@ export function createToyotaGlobe(container, { onSelect }) {
       const marker = new THREE.Sprite(material);
       marker.position.copy(point);
       const badgeSize = 0.26 + (site.signal / 100) * 0.2;
-      const width = isFactory ? 0.32 : badgeSize;
-      const height = isFactory ? 0.43 : badgeSize;
+      const width = isVenue ? 0.34 : badgeSize;
+      const height = isVenue ? 0.45 : badgeSize;
       marker.scale.set(width * 0.1, height * 0.1, 1);
       marker.userData = {
         id: site.id,

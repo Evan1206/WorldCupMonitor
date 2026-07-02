@@ -133,7 +133,7 @@ function globeSites(matches) {
   }));
   const venueSites = hostCities.filter((venue) => venue.plottable !== false).map((venue) => ({
     ...venue, region: venue.country, type: 'Host venue', signal: Math.round((venue.capacity / 87523) * 100),
-    color: '#f04438', kind: 'factory', highGrowth: selected?.venueId === venue.id, models: [], note: '',
+    color: '#f6c85f', kind: 'venue', highGrowth: selected?.venueId === venue.id, models: [], note: '',
   }));
   return [...venueSites, ...teamSites];
 }
